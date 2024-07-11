@@ -19,13 +19,13 @@ import random
 import numbers
 
 parser = argparse.ArgumentParser(description='cnn_lstm_kl training')
-parser.add_argument('-g', '--gpu', default=[2], nargs='+', type=int, help='index of gpu to use, default 2')
-parser.add_argument('-s', '--seq', default=4, type=int, help='sequence length, default 4')
-parser.add_argument('-t', '--train', default=100, type=int, help='train batch size, default 100')
-parser.add_argument('-v', '--val', default=8, type=int, help='valid batch size, default 8')
+parser.add_argument('-g', '--gpu', default=[0], nargs='+', type=int, help='index of gpu to use, default 2')
+parser.add_argument('-s', '--seq', default=1, type=int, help='sequence length, default 4')
+parser.add_argument('-t', '--train', default=1, type=int, help='train batch size, default 100')
+parser.add_argument('-v', '--val', default=1, type=int, help='valid batch size, default 8')
 parser.add_argument('-o', '--opt', default=1, type=int, help='0 for sgd 1 for adam, default 1')
 parser.add_argument('-m', '--multi', default=1, type=int, help='0 for single opt, 1 for multi opt, default 1')
-parser.add_argument('-e', '--epo', default=25, type=int, help='epochs to train and val, default 25')
+parser.add_argument('-e', '--epo', default=2, type=int, help='epochs to train and val, default 25')
 parser.add_argument('-w', '--work', default=2, type=int, help='num of workers to use, default 2')
 parser.add_argument('-f', '--flip', default=0, type=int, help='0 for not flip, 1 for flip, default 0')
 parser.add_argument('-c', '--crop', default=1, type=int, help='0 rand, 1 cent, 5 five_crop, 10 ten_crop, default 1')
@@ -38,6 +38,8 @@ parser.add_argument('--sgdadjust', default=1, type=int, help='sgd method adjust 
 parser.add_argument('--sgdstep', default=5, type=int, help='number of steps to adjust lr for sgd, default 5')
 parser.add_argument('--sgdgamma', default=0.1, type=float, help='gamma of steps to adjust lr for sgd, default 0.1')
 parser.add_argument('-a', '--alpha', default=1.0, type=float, help='kl loss ratio, default 1.0')
+parser.add_argument('-m1_name', '--m1_name', default='', type=str, help='name of old model1')
+parser.add_argument('-m2_name', '--m2_name', default='', type=str, help='name of old model2')
 
 args = parser.parse_args()
 
@@ -378,8 +380,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
 
     model_old = multi_lstm()
     model_old = DataParallel(model_old)
-    model_old.load_state_dict(torch.load(
-        "cnn_lstm_1_epoch_25_length_10_opt_1_mulopt_1_flip_0_crop_1_batch_300_train1_9991_train2_9958_val1_9725_val2_8864.pth"))
+    model_old.load_state_dict(torch.load(args.m1_name))
 
     model = multi_lstm_p2t()
     model.share = model_old.module.share
@@ -391,8 +392,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
     model = DataParallel(model)
     for param in model.module.fc_p2t.parameters():
         param.requires_grad = False
-    model.module.fc_p2t.load_state_dict(torch.load(
-        "fc_epoch_25_length_4_opt_1_mulopt_1_flip_0_crop_1_batch_800_train1_9951_train2_9713_val1_9686_val2_7867_p2t.pth"))
+    model.module.fc_p2t.load_state_dict(torch.load(args.m2_name))
 
     if use_gpu:
         model = model.cuda()
@@ -504,11 +504,15 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
 
             sig_average = (sig_output_1.data + sig_output_3.data) / 2
 
-            preds_1 = torch.cuda.ByteTensor(sig_output_1.data > 0.5)
+            preds_1 = torch.zeros_like(sig_output_1.data)
+            preds_1[sig_output_1.data > 0.5] = 1
+            # preds_1 = torch.cuda.ByteTensor(sig_output_1.data > 0.5)
             preds_1 = preds_1.long()
             train_corrects_1 += torch.sum(preds_1 == labels_1.data)
 
-            preds_3 = torch.cuda.ByteTensor(sig_average > 0.5)
+            preds_3 = torch.zeros_like(sig_average)
+            preds_3[sig_average > 0.5] = 1
+            # preds_3 = torch.cuda.ByteTensor(sig_average > 0.5)
             preds_3 = preds_3.long()
             train_corrects_3 += torch.sum(preds_3 == labels_1.data)
 
@@ -522,9 +526,12 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
             loss.backward()
             optimizer.step()
 
-            train_loss_1 += loss_1.data[0]
-            train_loss_2 += loss_2.data[0]
-            train_loss_3 += loss_3.data[0]
+            train_loss_1 += loss_1.data.data
+            train_loss_2 += loss_2.data.data
+            train_loss_3 += loss_3.data.data
+            # train_loss_1 += loss_1.data[0]
+            # train_loss_2 += loss_2.data[0]
+            # train_loss_3 += loss_3.data[0]
 
         train_elapsed_time = time.time() - train_start_time
         train_accuracy_1 = train_corrects_1 / num_train_all / 7
@@ -582,9 +589,12 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
             sig_output_3 = Variable(sig_output_3.data, requires_grad=False)
             loss_3 = torch.abs(criterion_3(sig_output_1, sig_output_3))
 
-            val_loss_1 += loss_1.data[0]
-            val_loss_2 += loss_2.data[0]
-            val_loss_3 += loss_3.data[0]
+            val_loss_1 += loss_1.data.data
+            val_loss_2 += loss_2.data.data
+            val_loss_3 += loss_3.data.data
+            # val_loss_1 += loss_1.data[0]
+            # val_loss_2 += loss_2.data[0]
+            # val_loss_3 += loss_3.data[0]
 
         val_elapsed_time = time.time() - val_start_time
         val_accuracy_1 = val_corrects_1 / (num_val_all * 7)

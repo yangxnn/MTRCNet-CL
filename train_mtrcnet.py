@@ -17,15 +17,17 @@ import argparse
 import copy
 import random
 import numbers
+from torch.utils.data import Sampler  # 
+torch.backends.cudnn.enabled = False
 
 parser = argparse.ArgumentParser(description='cnn_lstm training')
-parser.add_argument('-g', '--gpu', default=[2], nargs='+', type=int, help='index of gpu to use, default 2')
-parser.add_argument('-s', '--seq', default=4, type=int, help='sequence length, default 4')
-parser.add_argument('-t', '--train', default=100, type=int, help='train batch size, default 100')
-parser.add_argument('-v', '--val', default=8, type=int, help='valid batch size, default 8')
+parser.add_argument('-g', '--gpu', default=[0], nargs='+', type=int, help='index of gpu to use, default 2')
+parser.add_argument('-s', '--seq', default=1, type=int, help='sequence length, default 4')
+parser.add_argument('-t', '--train', default=1, type=int, help='train batch size, default 100')
+parser.add_argument('-v', '--val', default=1, type=int, help='valid batch size, default 8')
 parser.add_argument('-o', '--opt', default=1, type=int, help='0 for sgd 1 for adam, default 1')
 parser.add_argument('-m', '--multi', default=1, type=int, help='0 for single opt, 1 for multi opt, default 1')
-parser.add_argument('-e', '--epo', default=25, type=int, help='epochs to train and val, default 25')
+parser.add_argument('-e', '--epo', default=2, type=int, help='epochs to train and val, default 25')
 parser.add_argument('-w', '--work', default=2, type=int, help='num of workers to use, default 2')
 parser.add_argument('-f', '--flip', default=0, type=int, help='0 for not flip, 1 for flip, default 0')
 parser.add_argument('-c', '--crop', default=1, type=int, help='0 rand, 1 cent, 5 five_crop, 10 ten_crop, default 1')
@@ -40,17 +42,17 @@ parser.add_argument('--sgdgamma', default=0.1, type=float, help='gamma of steps 
 
 args = parser.parse_args()
 
-gpu_usg = ",".join(list(map(str, args.gpu)))
-sequence_length = args.seq
-train_batch_size = args.train
-val_batch_size = args.val
-optimizer_choice = args.opt
-multi_optim = args.multi
-epochs = args.epo
-workers = args.work
-use_flip = args.flip
-crop_type = args.crop
-learning_rate = args.lr
+gpu_usg = ",".join(list(map(str, args.gpu)))  # 使用gpu的index
+sequence_length = args.seq    # 序列长度, 因为用的是LSTM
+train_batch_size = args.train  # 训练集1个batch的大小
+val_batch_size = args.val     # 验证集1个batch的大小
+optimizer_choice = args.opt   # 优化算法: 默认adam
+multi_optim = args.multi     # 优化算法配置
+epochs = args.epo            # epoch数, 1个epoch就是把数据都跑完一次
+workers = args.work         # pytorch里Dataloader里加载的子进程数, 不用管
+use_flip = args.flip       # 图像翻转
+crop_type = args.crop      # 图像裁剪
+learning_rate = args.lr    # 学习率
 momentum = args.momentum
 weight_decay = args.weightdecay
 dampening = args.dampening
@@ -61,6 +63,7 @@ sgd_step = args.sgdstep
 sgd_gamma = args.sgdgamma
 
 os.environ["CUDA_VISIBLE_DEVICES"] = gpu_usg
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 num_gpu = torch.cuda.device_count()
 use_gpu = torch.cuda.is_available()
 
@@ -157,6 +160,7 @@ class CholecDataset(Dataset):
 class multi_lstm(torch.nn.Module):
     def __init__(self):
         super(multi_lstm, self).__init__()
+        # resnet = models.resnet18(pretrained=True)
         resnet = models.resnet50(pretrained=True)
         self.share = torch.nn.Sequential()
         self.share.add_module("conv1", resnet.conv1)
@@ -171,6 +175,7 @@ class multi_lstm(torch.nn.Module):
         self.lstm = nn.LSTM(2048, 512, batch_first=True, dropout=1)
         self.fc = nn.Linear(512, 7)
         self.fc2 = nn.Linear(2048, 7)
+        # self.fc3 = nn.Linear(2048, 7) # test,yangx
         init.xavier_normal(self.lstm.all_weights[0][0])
         init.xavier_normal(self.lstm.all_weights[0][1])
         init.xavier_uniform(self.fc.weight)
@@ -271,6 +276,18 @@ def get_data(data_path):
 
     return train_dataset, train_num_each, val_dataset, val_num_each, test_dataset, test_num_each
 
+# 序列采样sampler
+class SeqSampler(Sampler):
+    def __init__(self, data_source, idx):
+        super().__init__(data_source)
+        self.data_source = data_source
+        self.idx = idx
+
+    def __iter__(self):
+        return iter(self.idx)
+
+    def __len__(self):
+        return len(self.idx)
 
 def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
     num_train = len(train_dataset)
@@ -280,10 +297,12 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
 
     val_useful_start_idx = get_useful_start_idx(sequence_length, val_num_each)
 
-    num_train_we_use = len(train_useful_start_idx) // num_gpu * num_gpu
-    num_val_we_use = len(val_useful_start_idx) // num_gpu * num_gpu
-    # num_train_we_use = 4
-    # num_val_we_use = 800
+    # num_train_we_use = len(train_useful_start_idx) // num_gpu * num_gpu
+    num_train_we_use = len(train_useful_start_idx)
+    # num_val_we_use = len(val_useful_start_idx) // num_gpu * num_gpu
+    num_val_we_use = len(val_useful_start_idx)
+    num_train_we_use = 1
+    num_val_we_use = 1
 
     train_we_use_start_idx = train_useful_start_idx[0:num_train_we_use]
     val_we_use_start_idx = val_useful_start_idx[0:num_val_we_use]
@@ -312,30 +331,33 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
     print('num of valid we use : {:6d}'.format(num_val_we_use))
     print('num of all valid use: {:6d}'.format(num_val_all))
 
-    train_loader = DataLoader(
+    train_loader = DataLoader(  # 详情可以搜索pytorch DataLoader参数说明
         train_dataset,
         batch_size=train_batch_size,
-        sampler=train_idx,
+        sampler=SeqSampler(train_dataset, train_idx),
+        # sampler=train_idx,  # 取样本的索引 sampler=SeqSampler(val_dataset, val_idx),
         num_workers=workers,
         pin_memory=False
     )
     val_loader = DataLoader(
         val_dataset,
         batch_size=val_batch_size,
-        sampler=val_idx,
+        sampler=SeqSampler(val_dataset, val_idx), # 
+        # sampler=val_idx,
         num_workers=workers,
         pin_memory=False
     )
-    model = multi_lstm()
+    model = multi_lstm()  #生成模型实例
     sig_f = nn.Sigmoid()
 
     if use_gpu:
         model = model.cuda()
         sig_f = sig_f.cuda()
     model = DataParallel(model)
-    criterion_1 = nn.BCEWithLogitsLoss(size_average=False)
+    criterion_1 = nn.BCEWithLogitsLoss(size_average=False)  # 2中损失函数
     criterion_2 = nn.CrossEntropyLoss(size_average=False)
 
+    # 下面是优化器的设置, 默认看363行那个
     if multi_optim == 0:
         if optimizer_choice == 0:
             optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, dampening=dampening,
@@ -359,7 +381,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
                 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=sgd_adjust_lr, gamma=sgd_gamma)
             elif sgd_adjust_lr == 1:
                 exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-        elif optimizer_choice == 1:
+        elif optimizer_choice == 1:    # 默认看这里
             optimizer = optim.Adam([
                 {'params': model.module.share.parameters()},
                 {'params': model.module.lstm.parameters(), 'lr': learning_rate},
@@ -375,7 +397,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
 
     record_np = np.zeros([epochs, 8])
 
-    for epoch in range(epochs):
+    for epoch in range(epochs):  # 
         # np.random.seed(epoch)
         np.random.shuffle(train_we_use_start_idx)
         train_idx = []
@@ -386,7 +408,8 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
         train_loader = DataLoader(
             train_dataset,
             batch_size=train_batch_size,
-            sampler=train_idx,
+            sampler=SeqSampler(train_dataset, train_idx),
+            # sampler=train_idx,
             num_workers=workers,
             pin_memory=False
         )
@@ -416,7 +439,9 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
             _, preds_2 = torch.max(outputs_2.data, 1)
 
             sig_out = sig_f(outputs_1.data)
-            preds_1 = torch.ByteTensor(sig_out.cpu() > 0.5)
+            preds_1 = torch.zeros_like(sig_out.cpu())
+            preds_1[sig_out.cpu() > 0.5] = 1
+            # preds_1 = torch.ByteTensor(sig_out.cpu() > 0.5)
             preds_1 = preds_1.long()
             train_corrects_1 += torch.sum(preds_1 == labels_1.data.cpu())
             labels_1 = Variable(labels_1.data.float())
@@ -427,8 +452,10 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
             loss.backward()
             optimizer.step()
 
-            train_loss_1 += loss_1.data[0]
-            train_loss_2 += loss_2.data[0]
+            # train_loss_1 += loss_1.data[0]
+            # train_loss_2 += loss_2.data[0]
+            train_loss_1 += loss_1.data.data
+            train_loss_2 += loss_2.data.data
             train_corrects_2 += torch.sum(preds_2 == labels_2.data)
 
         train_elapsed_time = time.time() - train_start_time
@@ -481,15 +508,19 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
             _, preds_2 = torch.max(outputs_2.data, 1)
 
             sig_out = sig_f(outputs_1.data)
-            preds_1 = torch.ByteTensor(sig_out.cpu() > 0.5)
+            preds_1 = torch.zeros_like(sig_out.cpu())
+            preds_1[sig_out.cpu() > 0.5] = 1
+            # preds_1 = torch.ByteTensor(sig_out.cpu() > 0.5)
             preds_1 = preds_1.long()
             val_corrects_1 += torch.sum(preds_1 == labels_1.data.cpu())
             labels_1 = Variable(labels_1.data.float())
             loss_1 = criterion_1(outputs_1, labels_1)
-            val_loss_1 += loss_1.data[0]
+            # val_loss_1 += loss_1.data[0]
+            val_loss_1 += loss_1.data.data
 
             loss_2 = criterion_2(outputs_2, labels_2)
-            val_loss_2 += loss_2.data[0]
+            # val_loss_2 += loss_2.data[0]
+            val_loss_2 += loss_2.data.data
             val_corrects_2 += torch.sum(preds_2 == labels_2.data)
 
         val_elapsed_time = time.time() - val_start_time
@@ -602,3 +633,4 @@ if __name__ == "__main__":
 
 print('Done')
 print()
+

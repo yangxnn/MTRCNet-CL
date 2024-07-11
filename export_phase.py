@@ -11,7 +11,7 @@ test_paths = train_test_paths_labels[2]
 test_labels = train_test_paths_labels[5]
 
 parser = argparse.ArgumentParser(description='lstm testing')
-parser.add_argument('-s', '--seq', default=4, type=int, help='sequence length, default 4')
+parser.add_argument('-s', '--seq', default=1, type=int, help='sequence length, default 4')
 parser.add_argument('-n', '--name', type=str, help='name of model')
 
 args = parser.parse_args()
@@ -38,7 +38,7 @@ if num_labels == (num_preds + (sequence_length - 1) * 40):
                   'GallbladderPackaging', 'CleaningCoagulation', 'GallbladderRetraction']
     preds_all = []
     count = 0
-    for i in range(40):
+    for i in range(1):
         filename = './phase/video' + str(41 + i) + '-phase.txt'
         f = open(filename, 'a')
         f.write('Frame Phase')

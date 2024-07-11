@@ -19,13 +19,13 @@ import random
 import numbers
 
 parser = argparse.ArgumentParser(description='lstm training')
-parser.add_argument('-g', '--gpu', default=[2], nargs='+', type=int, help='index of gpu to use, default 2')
-parser.add_argument('-s', '--seq', default=4, type=int, help='sequence length, default 4')
-parser.add_argument('-t', '--train', default=100, type=int, help='train batch size, default 100')
-parser.add_argument('-v', '--val', default=8, type=int, help='valid batch size, default 8')
+parser.add_argument('-g', '--gpu', default=[0], nargs='+', type=int, help='index of gpu to use, default 2')
+parser.add_argument('-s', '--seq', default=1, type=int, help='sequence length, default 4')
+parser.add_argument('-t', '--train', default=1, type=int, help='train batch size, default 100')
+parser.add_argument('-v', '--val', default=1, type=int, help='valid batch size, default 8')
 parser.add_argument('-o', '--opt', default=1, type=int, help='0 for sgd 1 for adam, default 1')
 parser.add_argument('-m', '--multi', default=1, type=int, help='0 for single opt, 1 for multi opt, default 1')
-parser.add_argument('-e', '--epo', default=25, type=int, help='epochs to train and val, default 25')
+parser.add_argument('-e', '--epo', default=2, type=int, help='epochs to train and val, default 25')
 parser.add_argument('-w', '--work', default=2, type=int, help='num of workers to use, default 2')
 parser.add_argument('-f', '--flip', default=0, type=int, help='0 for not flip, 1 for flip, default 0')
 parser.add_argument('-c', '--crop', default=1, type=int, help='0 rand, 1 cent, 5 five_crop, 10 ten_crop, default 1')
@@ -403,7 +403,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-            train_loss += loss.data[0]
+            train_loss += loss.data.data
             train_corrects += torch.sum(preds == labels.data)
         train_elapsed_time = time.time() - train_start_time
         train_accuracy = train_corrects / num_train_all
@@ -444,7 +444,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
             _, preds = torch.max(outputs.data, 1)
 
             loss = criterion(outputs, labels)
-            val_loss += loss.data[0]
+            val_loss += loss.data.data
             val_corrects += torch.sum(preds == labels.data)
         val_elapsed_time = time.time() - val_start_time
         val_accuracy = val_corrects / num_val_we_use
@@ -490,7 +490,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
 
     save_val = int("{:4.0f}".format(best_val_accuracy * 10000))
     save_train = int("{:4.0f}".format(correspond_train_acc * 10000))
-    model_name = "lstm" \
+    model_name = "lstm_phase" \
                  + "_epoch_" + str(epochs) \
                  + "_length_" + str(sequence_length) \
                  + "_opt_" + str(optimizer_choice) \
@@ -504,7 +504,7 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
 
     torch.save(best_model_wts, model_name)
 
-    record_name = "lstm" \
+    record_name = "lstm_phase" \
                   + "_epoch_" + str(epochs) \
                   + "_length_" + str(sequence_length) \
                   + "_opt_" + str(optimizer_choice) \

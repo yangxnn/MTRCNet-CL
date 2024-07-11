@@ -32,7 +32,7 @@ os.mkdir(root_dir)
 preds_all = []
 count = 0
 labels_count = 0
-for i in range(40):
+for i in range(1):  # 需要根据实际数据量调整
     filename = './tool/video' + str(41 + i) + '-tool.txt'
     f = open(filename, 'w+')
     f.write('Frame Tool1 Tool2 Tool3 Tool4 Tool5 Tool6 Tool7')

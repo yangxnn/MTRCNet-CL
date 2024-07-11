@@ -18,9 +18,9 @@ import argparse
 from torchvision.transforms import Lambda
 
 parser = argparse.ArgumentParser(description='lstm testing')
-parser.add_argument('-g', '--gpu', default=[1], nargs='+', type=int, help='index of gpu to use, default 1')
-parser.add_argument('-s', '--seq', default=4, type=int, help='sequence length, default 4')
-parser.add_argument('-t', '--test', default=800, type=int, help='test batch size, default 800')
+parser.add_argument('-g', '--gpu', default=[0], nargs='+', type=int, help='index of gpu to use, default 1')
+parser.add_argument('-s', '--seq', default=1, type=int, help='sequence length, default 4')
+parser.add_argument('-t', '--test', default=1, type=int, help='test batch size, default 800')
 parser.add_argument('-w', '--work', default=2, type=int, help='num of workers to use, default 2')
 parser.add_argument('-n', '--name', type=str, help='name of model')
 parser.add_argument('-c', '--crop', default=1, type=int, help='0 rand, 1 cent, 5 five_crop, 10 ten_crop, default 1')
@@ -289,7 +289,7 @@ def test_model(test_dataset, test_num_each):
             all_preds.append(preds[i])
         print(len(all_preds))
         loss = criterion(outputs, labels)
-        test_loss += loss.data[0]
+        test_loss += loss.data.data
         test_corrects += torch.sum(preds == labels.data)
 
     test_elapsed_time = time.time() - test_start_time

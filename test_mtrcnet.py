@@ -18,9 +18,9 @@ import argparse
 from torchvision.transforms import Lambda
 
 parser = argparse.ArgumentParser(description='cnn_lstm testing')
-parser.add_argument('-g', '--gpu', default=[1], nargs='+', type=int, help='index of gpu to use, default 1')
-parser.add_argument('-s', '--seq', default=4, type=int, help='sequence length, default 4')
-parser.add_argument('-t', '--test', default=800, type=int, help='test batch size, default 800')
+parser.add_argument('-g', '--gpu', default=[0], nargs='+', type=int, help='index of gpu to use, default 1')
+parser.add_argument('-s', '--seq', default=1, type=int, help='sequence length, default 4')
+parser.add_argument('-t', '--test', default=1, type=int, help='test batch size, default 800')
 parser.add_argument('-w', '--work', default=2, type=int, help='num of workers to use, default 2')
 parser.add_argument('-n', '--name', type=str, help='name of model')
 parser.add_argument('-c', '--crop', default=1, type=int, help='0 rand, 1 cent, 5 five_crop, 10 ten_crop, default 1')
@@ -316,7 +316,7 @@ def test_model(test_dataset, test_num_each):
 
         # test_loss_1 += loss_1.data[0]
         loss_2 = criterion_2(outputs_2, labels_2)
-        test_loss_2 += loss_2.data[0]
+        test_loss_2 += loss_2.data.data
         test_corrects_2 += torch.sum(preds_2 == labels_2.data)
 
     all_preds_1_cor = []
@@ -342,12 +342,15 @@ def test_model(test_dataset, test_num_each):
     pt_labels_1 = Variable(pt_labels_1, requires_grad=False)
     pt_preds_1 = Variable(pt_preds_1, requires_grad=False)
     loss_1 = criterion_1(pt_preds_1, pt_labels_1)
-    test_loss_1 += loss_1.data[0]
+    test_loss_1 += loss_1.data.data
+    # test_loss_1 += loss_1.data[0]
 
     pt_labels_1 = pt_labels_1.data
     pt_preds_1 = pt_preds_1.data
-    sig_out = sig_f(pt_preds_1)
-    preds_cor = torch.ByteTensor(sig_out > 0.5)
+    sig_out = sig_f(pt_preds_1)	
+    preds_cor = torch.zeros_like(sig_out)
+    preds_cor[sig_out > 0.5] = 1
+    #preds_cor = torch.ByteTensor(sig_out > 0.5)
     preds_cor = preds_cor.long()
     pt_labels_1 = pt_labels_1.long()
     test_corrects_1 = torch.sum(preds_cor == pt_labels_1)
