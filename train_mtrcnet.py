@@ -297,12 +297,12 @@ def train_model(train_dataset, train_num_each, val_dataset, val_num_each):
 
     val_useful_start_idx = get_useful_start_idx(sequence_length, val_num_each)
 
-    # num_train_we_use = len(train_useful_start_idx) // num_gpu * num_gpu
-    num_train_we_use = len(train_useful_start_idx)
-    # num_val_we_use = len(val_useful_start_idx) // num_gpu * num_gpu
-    num_val_we_use = len(val_useful_start_idx)
-    num_train_we_use = 1
-    num_val_we_use = 1
+    num_train_we_use = len(train_useful_start_idx) // num_gpu * num_gpu
+    # num_train_we_use = len(train_useful_start_idx)
+    num_val_we_use = len(val_useful_start_idx) // num_gpu * num_gpu
+    # num_val_we_use = len(val_useful_start_idx)
+    # num_train_we_use = 1
+    # num_val_we_use = 1
 
     train_we_use_start_idx = train_useful_start_idx[0:num_train_we_use]
     val_we_use_start_idx = val_useful_start_idx[0:num_val_we_use]

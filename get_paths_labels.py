@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pickle
 
-root_dir = '/home/u2022141214/mtr_20240709/cholec'   # TODO 20240710 改为实际路径
+root_dir = '/home/u2022141214/mtrcnet_20240918/MTRCNet-CL/cholec'   # TODO 20240710 改为实际路径
 img_dir = os.path.join(root_dir, 'data_resize')    # 图片数据
 tool_dir = os.path.join(root_dir, 'tool_annotations')  # 每个图片上使用到的手术工具标注
 phase_dir = os.path.join(root_dir, 'phase_annotations')  # 每个图片对应手术动作的标注
@@ -116,7 +116,7 @@ train_num_each = []
 val_num_each = []
 test_num_each = []
 
-for i in range(1):   # TODO 20240710 只有5个文件, 仅跑通把5个文件都用了
+for i in range(0, 6):   # TODO 20240710 只有5个文件, 仅跑通把5个文件都用了
 # for i in range(32):   # 前32个视频图像做训练集
     train_num_each.append(len(all_info[i]))
     for j in range(len(all_info[i])):
@@ -126,7 +126,7 @@ for i in range(1):   # TODO 20240710 只有5个文件, 仅跑通把5个文件都
 print(len(train_file_paths))
 print(len(train_labels))
 
-for i in range(1):   # TODO 20240710 只有5个文件, 仅跑通把5个文件都用了
+for i in range(6, 8):   # TODO 20240710 只有5个文件, 仅跑通把5个文件都用了
 # for i in range(32, 40):   # 中间8个视频图像做验证集
     val_num_each.append(len(all_info[i]))
     for j in range(len(all_info[i])):
@@ -136,7 +136,7 @@ for i in range(1):   # TODO 20240710 只有5个文件, 仅跑通把5个文件都
 print(len(val_file_paths))
 print(len(val_labels))
 
-for i in range(1):   # TODO 20240710 只有5个文件, 仅跑通把5个文件都用了
+for i in range(8, 10):   # TODO 20240710 只有5个文件, 仅跑通把5个文件都用了
 # for i in range(40, 80):  # 后40个视频图像做测试集
     test_num_each.append(len(all_info[i]))
     for j in range(len(all_info[i])):

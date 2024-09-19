@@ -304,7 +304,6 @@ def test_model(test_dataset, test_num_each):
             all_labels_1.append(labels_1[i].data.cpu().numpy().tolist())
         # for i in range(len(preds_2)):
         #     all_preds_2.append(preds_2[i])
-        print('preds_1: {:6d}'.format(len(all_preds_1)))
 
         # labels_1 = Variable(labels_1.data.float())
         # loss_1 = criterion_1(outputs_1, labels_1)

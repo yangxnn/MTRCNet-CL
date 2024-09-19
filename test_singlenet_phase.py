@@ -287,7 +287,6 @@ def test_model(test_dataset, test_num_each):
         _, preds = torch.max(outputs.data, 1)
         for i in range(len(preds)):
             all_preds.append(preds[i])
-        print(len(all_preds))
         loss = criterion(outputs, labels)
         test_loss += loss.data.data
         test_corrects += torch.sum(preds == labels.data)
